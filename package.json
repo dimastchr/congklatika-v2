@@ -1,0 +1,23 @@
+{
+  "name": "congklatika",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0 --port 3000",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0 --port 3000",
+    "lint": "node -c app.js",
+    "test": "node tests/game-regression.cjs",
+    "test:browser": "node tests/browser-regression.cjs && node tests/navigation-progress.cjs && node tests/learning-mode-regression.cjs && node tests/header-avatar.cjs",
+    "test:all": "npm test && npm run test:browser"
+  },
+  "devDependencies": {
+    "playwright": "^1.64.1",
+    "vite": "^5.4.11"
+  },
+  "dependencies": {
+    "@firebase/eslint-plugin-security-rules": "^0.0.2",
+    "eslint": "^10.15.0",
+    "firebase": "^13.4.0"
+  }
+}

@@ -1,0 +1,248 @@
+{
+  "entities": {
+    "PlayerProfile": {
+      "title": "PlayerProfile",
+      "description": "Cloud profile and learning/game progress for a CongklaTika player.",
+      "type": "object",
+      "properties": {
+        "ownerUid": {
+          "type": "string",
+          "description": "Firebase Authentication UID that owns this profile.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "username": {
+          "type": "string",
+          "description": "Unique lowercase player handle for Username + PIN login.",
+          "minLength": 3,
+          "maxLength": 20,
+          "pattern": "^[a-z0-9_\\-]+$"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Player nickname shown in CongklaTika.",
+          "minLength": 1,
+          "maxLength": 24
+        },
+        "character": {
+          "type": "string",
+          "description": "Selected CongklaTika companion avatar ID.",
+          "enum": ["buji", "bintang", "kupu", "tunas"],
+          "maxLength": 16
+        },
+        "authMethod": {
+          "type": "string",
+          "description": "Authentication provider used for this account.",
+          "enum": ["username_pin", "google"],
+          "maxLength": 20
+        },
+        "activeLevel": {
+          "type": "integer",
+          "description": "Currently selected learning level (1 to 3)."
+        },
+        "curriculumVersion": {
+          "type": "integer",
+          "description": "Curriculum version marker (2)."
+        },
+        "level1Done": {
+          "type": "array",
+          "description": "Completed topic IDs in Level 1 (max 6)."
+        },
+        "level2Done": {
+          "type": "array",
+          "description": "Completed topic IDs in Level 2 (max 6)."
+        },
+        "level3Done": {
+          "type": "array",
+          "description": "Completed topic IDs in Level 3 (max 6)."
+        },
+        "legacyUnlockedLevels": {
+          "type": "array",
+          "description": "Legacy unlocked level numbers (max 2)."
+        },
+        "preTotal": {
+          "type": "integer",
+          "description": "Latest Pre-Test score (-1 if not attempted, otherwise 0 to 10)."
+        },
+        "postTotal": {
+          "type": "integer",
+          "description": "Latest Post-Test score (-1 if not attempted, otherwise 0 to 10)."
+        },
+        "preAttemptsCount": {
+          "type": "integer",
+          "description": "Total Pre-Test attempts recorded."
+        },
+        "postAttemptsCount": {
+          "type": "integer",
+          "description": "Total Post-Test attempts recorded."
+        },
+        "gamesPlayed": {
+          "type": "integer",
+          "description": "Completed Congklak board games played."
+        },
+        "gamesWon": {
+          "type": "integer",
+          "description": "Completed Congklak board games won by player."
+        },
+        "badgesUnlocked": {
+          "type": "integer",
+          "description": "Count of museum-style milestone badges unlocked (0 to 6)."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server last-update timestamp."
+        }
+      },
+      "required": [
+        "ownerUid",
+        "username",
+        "displayName",
+        "character",
+        "authMethod",
+        "activeLevel",
+        "curriculumVersion",
+        "level1Done",
+        "level2Done",
+        "level3Done",
+        "legacyUnlockedLevels",
+        "preTotal",
+        "postTotal",
+        "preAttemptsCount",
+        "postAttemptsCount",
+        "gamesPlayed",
+        "gamesWon",
+        "badgesUnlocked",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "UsernameHandle": {
+      "title": "UsernameHandle",
+      "description": "Private ownership lock linking a normalized username to its Firebase UID.",
+      "type": "object",
+      "properties": {
+        "username": {
+          "type": "string",
+          "description": "Normalized lowercase username matching document ID.",
+          "minLength": 3,
+          "maxLength": 20,
+          "pattern": "^[a-z0-9_\\-]+$"
+        },
+        "ownerUid": {
+          "type": "string",
+          "description": "Firebase Authentication UID owning this username.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        }
+      },
+      "required": ["username", "ownerUid", "createdAt"]
+    },
+    "QuizAttemptRecord": {
+      "title": "QuizAttemptRecord",
+      "description": "Immutable Pre-Test or Post-Test attempt summary stored under a player's profile.",
+      "type": "object",
+      "properties": {
+        "attemptId": {
+          "type": "string",
+          "description": "Client attempt ID matching document ID.",
+          "minLength": 1,
+          "maxLength": 48,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "ownerUid": {
+          "type": "string",
+          "description": "Firebase Authentication UID owning the parent profile.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "kind": {
+          "type": "string",
+          "description": "Quiz type: pre or post.",
+          "enum": ["pre", "post"],
+          "maxLength": 8
+        },
+        "total": {
+          "type": "integer",
+          "description": "Total correct answers (0 to 10)."
+        },
+        "addition": {
+          "type": "integer",
+          "description": "Correct answers in addition (0 to 2)."
+        },
+        "subtraction": {
+          "type": "integer",
+          "description": "Correct answers in subtraction (0 to 2)."
+        },
+        "multiplication": {
+          "type": "integer",
+          "description": "Correct answers in multiplication (0 to 2)."
+        },
+        "division": {
+          "type": "integer",
+          "description": "Correct answers in division (0 to 2)."
+        },
+        "fraction": {
+          "type": "integer",
+          "description": "Correct answers in fraction (0 to 2)."
+        },
+        "baselineId": {
+          "type": "string",
+          "description": "Optional paired pre-test attempt ID for post-tests.",
+          "maxLength": 48
+        },
+        "recordedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when attempt was recorded."
+        }
+      },
+      "required": [
+        "attemptId",
+        "ownerUid",
+        "kind",
+        "total",
+        "addition",
+        "subtraction",
+        "multiplication",
+        "division",
+        "fraction",
+        "baselineId",
+        "recordedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/players/{playerId}": {
+      "schema": {
+        "$ref": "#/entities/PlayerProfile"
+      },
+      "description": "Owner-isolated player profile and learning progress synced across devices."
+    },
+    "/usernames/{username}": {
+      "schema": {
+        "$ref": "#/entities/UsernameHandle"
+      },
+      "description": "Atomic username ownership reservation paired with /players/{playerId}."
+    },
+    "/players/{playerId}/quiz_attempts/{attemptId}": {
+      "schema": {
+        "$ref": "#/entities/QuizAttemptRecord"
+      },
+      "description": "Subcollection storing immutable Pre-Test and Post-Test scores for a player."
+    }
+  }
+}

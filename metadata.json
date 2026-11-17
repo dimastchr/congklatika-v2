@@ -1,0 +1,8 @@
+{
+  "name": "CongklaTika",
+  "description": "Petualangan belajar matematika dalam tiga level lewat permainan tradisional congklak bersama Buji.",
+  "permissions": [],
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

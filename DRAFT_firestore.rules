@@ -1,0 +1,259 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net (Default-Deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // === Global Hardened Primitives ===
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidUsername(u) {
+      return u is string && u.size() >= 3 && u.size() <= 20 && u.matches('^[a-z0-9_\\-]+$');
+    }
+
+    function isOwner(playerId) {
+      return isSignedIn() && request.auth.uid == playerId;
+    }
+
+    function isValidTopicList(listVal) {
+      return listVal is list
+        && listVal.size() <= 6
+        && listVal.hasOnly(['addition', 'subtraction', 'multiplication', 'division', 'fraction', 'number-pattern'])
+        && (listVal.size() == 0 || listVal[0] is string);
+    }
+
+    function isValidLegacyLevels(listVal) {
+      return listVal is list
+        && listVal.size() <= 2
+        && listVal.hasOnly([2, 3])
+        && (listVal.size() == 0 || listVal[0] is int);
+    }
+
+    // === Validation Blueprints ===
+    function isValidPlayerProfile(data, playerId) {
+      return data.keys().hasAll([
+          'ownerUid', 'username', 'displayName', 'character', 'authMethod',
+          'activeLevel', 'curriculumVersion', 'level1Done', 'level2Done', 'level3Done',
+          'legacyUnlockedLevels', 'preTotal', 'postTotal', 'preAttemptsCount',
+          'postAttemptsCount', 'gamesPlayed', 'gamesWon', 'badgesUnlocked',
+          'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'ownerUid', 'username', 'displayName', 'character', 'authMethod',
+          'activeLevel', 'curriculumVersion', 'level1Done', 'level2Done', 'level3Done',
+          'legacyUnlockedLevels', 'preTotal', 'postTotal', 'preAttemptsCount',
+          'postAttemptsCount', 'gamesPlayed', 'gamesWon', 'badgesUnlocked',
+          'createdAt', 'updatedAt'
+        ])
+        && data.ownerUid is string
+        && isValidId(data.ownerUid)
+        && data.ownerUid == playerId
+        && data.ownerUid == request.auth.uid
+        && isValidUsername(data.username)
+        && data.displayName is string
+        && data.displayName.size() >= 1
+        && data.displayName.size() <= 24
+        && data.displayName.matches('.*\\S.*')
+        && data.character is string
+        && data.character.size() <= 16
+        && data.character in ['buji', 'bintang', 'kupu', 'tunas']
+        && data.authMethod is string
+        && data.authMethod.size() <= 20
+        && data.authMethod in ['username_pin', 'google']
+        && data.activeLevel is int
+        && data.activeLevel >= 1
+        && data.activeLevel <= 3
+        && data.curriculumVersion is int
+        && data.curriculumVersion == 2
+        && isValidTopicList(data.level1Done)
+        && isValidTopicList(data.level2Done)
+        && isValidTopicList(data.level3Done)
+        && isValidLegacyLevels(data.legacyUnlockedLevels)
+        && data.preTotal is int
+        && data.preTotal >= -1
+        && data.preTotal <= 10
+        && data.postTotal is int
+        && data.postTotal >= -1
+        && data.postTotal <= 10
+        && data.preAttemptsCount is int
+        && data.preAttemptsCount >= 0
+        && data.preAttemptsCount <= 500
+        && data.postAttemptsCount is int
+        && data.postAttemptsCount >= 0
+        && data.postAttemptsCount <= 500
+        && data.gamesPlayed is int
+        && data.gamesPlayed >= 0
+        && data.gamesPlayed <= 100000
+        && data.gamesWon is int
+        && data.gamesWon >= 0
+        && data.gamesWon <= data.gamesPlayed
+        && data.badgesUnlocked is int
+        && data.badgesUnlocked >= 0
+        && data.badgesUnlocked <= 6
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidUsernameHandle(data, username) {
+      return data.keys().hasAll(['username', 'ownerUid', 'createdAt'])
+        && data.keys().hasOnly(['username', 'ownerUid', 'createdAt'])
+        && isValidUsername(data.username)
+        && data.username == username
+        && data.ownerUid is string
+        && isValidId(data.ownerUid)
+        && data.ownerUid == request.auth.uid
+        && data.createdAt is timestamp;
+    }
+
+    function isValidQuizAttempt(data, attemptId) {
+      return data.keys().hasAll([
+          'attemptId', 'ownerUid', 'kind', 'total', 'addition',
+          'subtraction', 'multiplication', 'division', 'fraction',
+          'baselineId', 'recordedAt'
+        ])
+        && data.keys().hasOnly([
+          'attemptId', 'ownerUid', 'kind', 'total', 'addition',
+          'subtraction', 'multiplication', 'division', 'fraction',
+          'baselineId', 'recordedAt'
+        ])
+        && data.attemptId is string
+        && isValidId(data.attemptId)
+        && data.attemptId == attemptId
+        && data.ownerUid is string
+        && isValidId(data.ownerUid)
+        && data.ownerUid == request.auth.uid
+        && data.kind is string
+        && data.kind.size() <= 8
+        && data.kind in ['pre', 'post']
+        && data.total is int
+        && data.total >= 0
+        && data.total <= 10
+        && data.addition is int && data.addition >= 0 && data.addition <= 2
+        && data.subtraction is int && data.subtraction >= 0 && data.subtraction <= 2
+        && data.multiplication is int && data.multiplication >= 0 && data.multiplication <= 2
+        && data.division is int && data.division >= 0 && data.division <= 2
+        && data.fraction is int && data.fraction >= 0 && data.fraction <= 2
+        && (data.addition + data.subtraction + data.multiplication + data.division + data.fraction) == data.total
+        && data.baselineId is string
+        && data.baselineId.size() <= 48
+        && data.recordedAt is timestamp;
+    }
+
+    // === Collection: /players/{playerId} ===
+    match /players/{playerId} {
+      allow get: if isValidId(playerId) && isOwner(playerId);
+      allow list: if isSignedIn() && resource.data.ownerUid == request.auth.uid;
+
+      allow create: if isSignedIn()
+        && isValidId(playerId)
+        && isOwner(playerId)
+        && isValidPlayerProfile(incoming(), playerId)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if isSignedIn()
+        && isValidId(playerId)
+        && isOwner(playerId)
+        && isValidPlayerProfile(incoming(), playerId)
+        && existing().ownerUid == request.auth.uid
+        && incoming().ownerUid == existing().ownerUid
+        && incoming().username == existing().username
+        && incoming().authMethod == existing().authMethod
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          // Action 1: Profile appearance update (displayName & character)
+          incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'character', 'updatedAt'])
+          ||
+          // Action 2: Full progress & stats sync
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'displayName', 'character', 'activeLevel', 'curriculumVersion',
+            'level1Done', 'level2Done', 'level3Done', 'legacyUnlockedLevels',
+            'preTotal', 'postTotal', 'preAttemptsCount', 'postAttemptsCount',
+            'gamesPlayed', 'gamesWon', 'badgesUnlocked', 'updatedAt'
+          ])
+          ||
+          // Action 3: Learning/game progress update only
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'activeLevel', 'level1Done', 'level2Done', 'level3Done',
+            'legacyUnlockedLevels', 'preTotal', 'postTotal',
+            'preAttemptsCount', 'postAttemptsCount', 'gamesPlayed', 'gamesWon',
+            'badgesUnlocked', 'updatedAt'
+          ])
+        );
+
+      allow delete: if isValidId(playerId)
+        && isOwner(playerId)
+        && existing().ownerUid == request.auth.uid;
+
+      // === Subcollection: /players/{playerId}/quiz_attempts/{attemptId} ===
+      match /quiz_attempts/{attemptId} {
+        allow get: if isValidId(playerId)
+          && isValidId(attemptId)
+          && isOwner(playerId)
+          && get(/databases/$(database)/documents/players/$(playerId)).data.ownerUid == request.auth.uid;
+
+        allow list: if isOwner(playerId)
+          && resource.data.ownerUid == request.auth.uid;
+
+        allow create: if isSignedIn()
+          && isValidId(playerId)
+          && isValidId(attemptId)
+          && isOwner(playerId)
+          && isValidQuizAttempt(incoming(), attemptId)
+          && incoming().recordedAt == request.time
+          && exists(/databases/$(database)/documents/players/$(playerId))
+          && get(/databases/$(database)/documents/players/$(playerId)).data.ownerUid == request.auth.uid;
+
+        allow update: if false;
+
+        allow delete: if isValidId(playerId)
+          && isValidId(attemptId)
+          && isOwner(playerId)
+          && get(/databases/$(database)/documents/players/$(playerId)).data.ownerUid == request.auth.uid;
+      }
+    }
+
+    // === Collection: /usernames/{username} ===
+    match /usernames/{username} {
+      allow get: if isValidUsername(username)
+        && isSignedIn()
+        && resource != null
+        && existing().ownerUid == request.auth.uid;
+
+      allow list: if false;
+
+      allow create: if isSignedIn()
+        && isValidUsername(username)
+        && isValidUsernameHandle(incoming(), username)
+        && incoming().createdAt == request.time
+        && existsAfter(/databases/$(database)/documents/players/$(request.auth.uid))
+        && getAfter(/databases/$(database)/documents/players/$(request.auth.uid)).data.username == username;
+
+      allow update: if false;
+
+      allow delete: if isValidUsername(username)
+        && isSignedIn()
+        && resource != null
+        && existing().ownerUid == request.auth.uid;
+    }
+  }
+}
