@@ -25,6 +25,8 @@ const server = http.createServer((req, res) => {
   try {
     for (const testCase of [
       {name:'desktop',width:1280,height:900,mobile:false},
+      {name:'tablet lanskap 1024px',width:1024,height:768,mobile:true},
+      {name:'tablet 768px',width:768,height:1024,mobile:true},
       {name:'ponsel 390px',width:390,height:844,mobile:true},
       {name:'ponsel 320px',width:320,height:800,mobile:true},
     ]) {
@@ -67,6 +69,15 @@ const server = http.createServer((req, res) => {
       assert.ok(state.character.length > 0, `${testCase.name}: wajah/karakter tetap tampil`);
       assert.ok(state.left >= -1 && state.right <= testCase.width + 1 && state.pageWidth <= state.viewport, `${testCase.name}: header muat tanpa overflow`);
       console.log(`PASS ${testCase.name}: ${state.width}×${state.height}, bg=${state.background}, radius=${state.borderRadius}, karakter=${state.character}`);
+      await page.evaluate(()=>{loginDialogOpen=false;loginDialogRequired=false;cloudSession={ready:true,signedIn:true,uid:'test-dashboard',username:'dira',authMethod:'username_pin'};state.name='Dira';state.profileSaved=true;state.page='home';state.levelProgress[1]=['addition','subtraction'];render()});
+      await page.locator('.dashboard-page').waitFor();
+      const dashboard=await page.evaluate(()=>({title:document.querySelector('#dashboard-title')?.textContent.trim(),cards:document.querySelectorAll('.dashboard-topic-card').length,overflow:document.documentElement.scrollWidth-innerWidth,progress:document.querySelector('.progress-ring strong')?.textContent,navHome:document.querySelector('.nav-link[data-page="home"]')?.getAttribute('aria-current')}));
+      assert.equal(dashboard.title,'Dashboard Siswa',`${testCase.name}: dashboard muncul saat akun masuk`);
+      assert.equal(dashboard.cards,6,`${testCase.name}: seluruh enam materi terlihat`);
+      assert.equal(dashboard.overflow,0,`${testCase.name}: dashboard tidak meluber dari viewport`);
+      assert.equal(dashboard.progress,'11%',`${testCase.name}: progres ring dihitung dari progres tersimpan`);
+      assert.equal(dashboard.navHome,'page',`${testCase.name}: tab Beranda menandai dashboard aktif`);
+      console.log(`PASS ${testCase.name}: dashboard siswa ${dashboard.progress}, enam materi, tanpa overflow`);
       await context.close();
     }
     console.log('Lulus: avatar header sesuai spesifikasi di desktop dan ponsel.');

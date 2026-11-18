@@ -4,10 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#fbf7ed">
-  <meta name="description" content="CongklaTika — petualangan belajar matematika dalam tiga tingkat lewat permainan tradisional congklak bersama Tika.">
+  <meta name="description" content="CongklaTika — belajar angka dan bermain congklak bersama Ozi dan Tika.">
   <meta property="og:type" content="website">
   <meta property="og:title" content="CongklaTika — Belajar Asyik, Main Congklak!">
-  <meta property="og:description" content="CongklaTika — petualangan belajar matematika dalam tiga tingkat lewat permainan tradisional congklak bersama Tika.">
+  <meta property="og:description" content="CongklaTika — belajar angka dan bermain congklak bersama Ozi dan Tika.">
   <title>CongklaTika — Belajar Asyik, Main Congklak!</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -16,8 +16,9 @@
   </script>
   <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500..800&family=Nunito:wght@400..900&display=swap" rel="stylesheet">
   <link rel="preload" as="image" href="./hero-congklatika-optimized.webp" fetchpriority="high">
-  <link rel="stylesheet" href="./styles.css?v=20261118-audit-1">
-  <link rel="stylesheet" href="./enhancements.css?v=20261118-audit-1">
+  <link rel="stylesheet" href="./styles.css?v=20261119-redesign-1">
+  <link rel="stylesheet" href="./enhancements.css?v=20261119-redesign-1">
+  <link rel="stylesheet" href="./redesign.css?v=20261119-redesign-1">
 </head>
 <body>
   <div class="ambient ambient-one" aria-hidden="true"></div><div class="ambient ambient-two" aria-hidden="true"></div>
@@ -25,6 +26,7 @@
     <a class="brand" data-page="home" href="#home" aria-label="CongklaTika, beranda"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 40 40"><path d="M5 17c0-3 3-5 7-5h16c4 0 7 2 7 5v8c0 4-3 6-7 6H12c-4 0-7-2-7-6z" fill="currentColor"/><path d="M9 18h22M11 18v9m6-9v9m6-9v9m6-9v9" stroke="#fff3d6" stroke-width="2" stroke-linecap="round"/><circle cx="13" cy="15" r="1.5" fill="#f9c74f"/><circle cx="20" cy="15" r="1.5" fill="#f9c74f"/><circle cx="27" cy="15" r="1.5" fill="#f9c74f"/></svg></span><span class="brand-name">Congkla<span>Tika</span></span></a>
     <button class="mobile-menu-button" id="menu-toggle" aria-label="Buka menu" aria-expanded="false">☰</button>
     <nav class="main-nav" id="main-nav" aria-label="Navigasi utama">
+      <button data-page="home" class="nav-link">Beranda</button>
       <button data-page="learn" class="nav-link">Belajar</button>
       <button data-page="play" class="nav-link">Main Congklak</button>
       <button data-page="history" class="nav-link">Cerita Congklak</button>
@@ -34,7 +36,7 @@
     <div class="header-actions"><button class="music-button sfx-toggle" data-sfx-toggle aria-pressed="true" aria-label="Matikan efek suara"><span>Efek suara</span></button><button id="music-toggle" class="music-button" aria-pressed="false" title="Nyalakan musik">♫ <span>Musik</span></button><button id="reset-toggle" class="music-button reset-toggle" data-action="reset-data" aria-label="Hapus data di perangkat" title="Hapus data di perangkat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8.1 8.1 0 1 0 2.2 5.5"/><path d="M20 4v7h-7"/></svg><span>Hapus data</span></button><button data-page="profile" class="avatar-button" title="Profil pemain"><span id="header-avatar">☺</span></button><button data-action="login" class="login-button" id="login-button" aria-label="Masuk dengan Username dan PIN">Masuk</button></div>
   </header>
   <nav class="bottom-nav" aria-label="Navigasi utama ponsel">
-    <a href="#home" data-page="home" data-bottom-route="home" aria-label="Beranda">
+    <a href="#home" data-page="home" data-bottom-route="home" aria-label="Beranda atau dashboard">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><span>Beranda</span>
     </a>
     <a href="#learn" data-page="learn" data-bottom-route="learn" aria-label="Belajar">

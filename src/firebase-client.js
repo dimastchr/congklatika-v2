@@ -81,6 +81,11 @@ const USERNAME_PATTERN = /^[a-z0-9_-]{3,20}$/;
 const PIN_PATTERN = /^\d{4,6}$/;
 const SYNTHETIC_DOMAIN = 'akun.congklatika.app';
 
+function toCloudCharacter(character) {
+  if (character === 'tika') return 'tunas';
+  return ALLOWED_CHARACTERS.includes(character) ? character : 'buji';
+}
+
 function normalizeUsername(value = '') {
   return String(value).trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
 }
@@ -158,7 +163,7 @@ function computeBadgesUnlocked(localState) {
 function sanitizeProfilePayload(uid, username, authMethod, localState, isCreate = false) {
   const rawName = String(localState?.name || username || 'Petualang').trim().slice(0, 24);
   const displayName = rawName.length >= 1 ? rawName : 'Petualang';
-  const character = ALLOWED_CHARACTERS.includes(localState?.character) ? localState.character : 'buji';
+  const character = toCloudCharacter(localState?.character);
   const activeLevelRaw = Math.trunc(Number(localState?.activeLevel) || 1);
   const activeLevel = Math.min(3, Math.max(1, activeLevelRaw));
   const lp = localState?.levelProgress || {};
@@ -333,7 +338,7 @@ async function registerWithUsernamePin({ username, pin, displayName, character, 
   const mergedLocal = {
     ...(localState || {}),
     name: cleanName,
-    character: ALLOWED_CHARACTERS.includes(character) ? character : 'buji',
+    character: toCloudCharacter(character),
   };
   await createAccountDocuments({
     uid: cred.user.uid,

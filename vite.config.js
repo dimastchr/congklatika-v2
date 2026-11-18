@@ -6,6 +6,8 @@ const rootDir = path.dirname(fileURLToPath(import.meta.url));
 const staticRuntimeFiles = [
   'app.js',
   'buji-avatar-optimized.webp',
+  'ozi-avatar-optimized.webp',
+  'tika-avatar-optimized.webp',
   'team-alfi-optimized.webp',
   'team-dimas-optimized.webp',
   'team-faisal-optimized.webp',
