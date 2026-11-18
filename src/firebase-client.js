@@ -24,13 +24,17 @@ import {
   updateDoc,
   writeBatch
 } from 'firebase/firestore';
-import firebaseConfig from '../firebase-applet-config.json';
 
-const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
-export const auth = getAuth(app);
+async function initializeFirebaseClient() {
+  const configResponse = await fetch(new URL('./firebase-applet-config.json', window.location.href));
+  if (!configResponse.ok) throw new Error('Konfigurasi Firebase tidak dapat dimuat.');
+  const firebaseConfig = await configResponse.json();
 
-export const OperationType = Object.freeze({
+  const app = initializeApp(firebaseConfig);
+const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+const auth = getAuth(app);
+
+const OperationType = Object.freeze({
   CREATE: 'create',
   UPDATE: 'update',
   DELETE: 'delete',
@@ -39,7 +43,7 @@ export const OperationType = Object.freeze({
   WRITE: 'write',
 });
 
-export function handleFirestoreError(error, operationType, path) {
+function handleFirestoreError(error, operationType, path) {
   const errInfo = {
     error: error instanceof Error ? error.message : String(error),
     authInfo: {
@@ -77,16 +81,16 @@ const USERNAME_PATTERN = /^[a-z0-9_-]{3,20}$/;
 const PIN_PATTERN = /^\d{4,6}$/;
 const SYNTHETIC_DOMAIN = 'akun.congklatika.app';
 
-export function normalizeUsername(value = '') {
+function normalizeUsername(value = '') {
   return String(value).trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
 }
 
-export function validateUsernameInput(value = '') {
+function validateUsernameInput(value = '') {
   const raw = String(value).trim().toLowerCase();
   return USERNAME_PATTERN.test(raw) ? raw : null;
 }
 
-export function validatePinInput(value = '') {
+function validatePinInput(value = '') {
   const raw = String(value).trim();
   return PIN_PATTERN.test(raw) ? raw : null;
 }
@@ -135,7 +139,7 @@ function sanitizeLegacyLevels(list) {
   return out;
 }
 
-export function computeBadgesUnlocked(localState) {
+function computeBadgesUnlocked(localState) {
   const lp = localState?.levelProgress || { 1: [], 2: [], 3: [] };
   const l1 = sanitizeTopicList(lp[1]);
   const l2 = sanitizeTopicList(lp[2]);
@@ -298,7 +302,7 @@ async function createAccountDocuments({ uid, username, authMethod, localState })
   return playerDoc;
 }
 
-export async function registerWithUsernamePin({ username, pin, displayName, character, localState }) {
+async function registerWithUsernamePin({ username, pin, displayName, character, localState }) {
   const cleanUsername = validateUsernameInput(username);
   if (!cleanUsername) {
     throw { code: 'validation/username', message: 'Username harus 3–20 karakter (huruf kecil, angka, _ atau -).' };
@@ -348,7 +352,7 @@ export async function registerWithUsernamePin({ username, pin, displayName, char
   };
 }
 
-export async function loginWithUsernamePin({ username, pin }) {
+async function loginWithUsernamePin({ username, pin }) {
   const cleanUsername = validateUsernameInput(username);
   if (!cleanUsername) {
     throw { code: 'validation/username', message: 'Masukkan username yang valid (3–20 karakter).' };
@@ -388,7 +392,7 @@ export async function loginWithUsernamePin({ username, pin }) {
   };
 }
 
-export async function loginWithGoogle({ localState } = {}) {
+async function loginWithGoogle({ localState } = {}) {
   const provider = new GoogleAuthProvider();
   provider.setCustomParameters({ prompt: 'select_account' });
   let cred;
@@ -423,7 +427,7 @@ export async function loginWithGoogle({ localState } = {}) {
   };
 }
 
-export async function syncProgressToCloud(localState) {
+async function syncProgressToCloud(localState) {
   const user = auth.currentUser;
   if (!user) return null;
   const path = `players/${user.uid}`;
@@ -437,9 +441,8 @@ export async function syncProgressToCloud(localState) {
   return false;
 }
 
-export async function recordQuizAttemptToCloud(attempt) {
-  const user = auth.currentUser;
-  if (!user || !attempt || !['pre', 'post'].includes(attempt.kind)) return null;
+function makeQuizAttemptRecord(uid, attempt) {
+  if (!attempt || !['pre', 'post'].includes(attempt.kind)) return null;
   const cleanId = String(attempt.id || `${attempt.kind}-${Date.now()}`)
     .replace(/[^a-zA-Z0-9_-]/g, '')
     .slice(0, 48) || `quiz-${Date.now()}`;
@@ -451,10 +454,10 @@ export async function recordQuizAttemptToCloud(attempt) {
   const fraction = Math.min(2, Math.max(0, Math.trunc(Number(s.fraction?.correct) || 0)));
   const numberPattern = Math.min(2, Math.max(0, Math.trunc(Number(s['number-pattern']?.correct) || 0)));
   const total = addition + subtraction + multiplication + division + fraction + numberPattern;
-  const path = `players/${user.uid}/quiz_attempts/${cleanId}`;
+  const path = `players/${uid}/quiz_attempts/${cleanId}`;
   const payload = {
     attemptId: cleanId,
-    ownerUid: user.uid,
+    ownerUid: uid,
     kind: attempt.kind,
     total,
     addition,
@@ -466,24 +469,79 @@ export async function recordQuizAttemptToCloud(attempt) {
     baselineId: attempt.baselineId ? String(attempt.baselineId).slice(0, 48) : '',
     recordedAt: serverTimestamp(),
   };
+  return { path, ref: doc(db, 'players', uid, 'quiz_attempts', cleanId), payload };
+}
+
+async function recordQuizAttemptToCloud(attempt) {
+  const user = auth.currentUser;
+  if (!user) return null;
+  const record = makeQuizAttemptRecord(user.uid, attempt);
+  if (!record) return null;
 
   try {
-    await setDoc(doc(db, 'players', user.uid, 'quiz_attempts', cleanId), payload);
+    const existing = await getDoc(record.ref);
+    if (existing.exists()) return true;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.GET, record.path);
+  }
+
+  try {
+    await setDoc(record.ref, record.payload);
     return true;
   } catch (error) {
-    handleFirestoreError(error, OperationType.CREATE, path);
+    handleFirestoreError(error, OperationType.CREATE, record.path);
   }
   return false;
 }
 
-export async function logoutAccount() {
+async function syncQuizAttemptsToCloud(attempts = []) {
+  const user = auth.currentUser;
+  if (!user || !Array.isArray(attempts) || attempts.length === 0) return null;
+
+  const path = `players/${user.uid}/quiz_attempts`;
+  let existing;
+  try {
+    existing = await getDocs(collection(db, 'players', user.uid, 'quiz_attempts'));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.LIST, path);
+  }
+
+  const existingIds = new Set((existing?.docs || []).map((item) => item.id));
+  const records = new Map();
+  for (const attempt of attempts) {
+    const record = makeQuizAttemptRecord(user.uid, attempt);
+    if (record && !existingIds.has(record.ref.id)) records.set(record.ref.id, record);
+  }
+  if (!records.size) return true;
+
+  let batch = writeBatch(db);
+  let operations = 0;
+  try {
+    for (const record of records.values()) {
+      batch.set(record.ref, record.payload);
+      operations += 1;
+      if (operations === 450) {
+        await batch.commit();
+        batch = writeBatch(db);
+        operations = 0;
+      }
+    }
+    if (operations) await batch.commit();
+    return records.size;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
+  return false;
+}
+
+async function logoutAccount() {
   await signOut(auth);
 }
 
 let activeProfileUnsub = null;
 let authReadyResolved = false;
 
-export function attachAuthObserver(onSessionChange) {
+function attachAuthObserver(onSessionChange) {
   return onAuthStateChanged(auth, async (user) => {
     authReadyResolved = true;
     if (activeProfileUnsub) {
@@ -547,6 +605,7 @@ window.congklatikaCloud = {
   loginWithGoogle,
   syncProgressToCloud,
   recordQuizAttemptToCloud,
+  syncQuizAttemptsToCloud,
   logoutAccount,
   attachAuthObserver,
   validateUsernameInput,
@@ -554,3 +613,9 @@ window.congklatikaCloud = {
 };
 
 window.dispatchEvent(new CustomEvent('congklatika:cloud-ready'));
+}
+
+initializeFirebaseClient().catch((error) => {
+  console.error('Firebase initialization failed:', error);
+  window.dispatchEvent(new CustomEvent('congklatika:cloud-error', { detail: error?.message || 'Firebase unavailable' }));
+});

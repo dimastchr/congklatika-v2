@@ -11,6 +11,9 @@
   <title>CongklaTika — Belajar Asyik, Main Congklak!</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <script type="importmap">
+    {"imports":{"firebase/app":"https://www.gstatic.com/firebasejs/13.4.0/firebase-app.js","firebase/auth":"https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js","firebase/firestore":"https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js"}}
+  </script>
   <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500..800&family=Nunito:wght@400..900&display=swap" rel="stylesheet">
   <link rel="preload" as="image" href="./hero-congklatika-optimized.webp" fetchpriority="high">
   <link rel="stylesheet" href="./styles.css?v=20261118-audit-1">
@@ -51,6 +54,7 @@
   <footer class="site-footer"><a class="brand footer-brand" data-page="home" href="#home"><span class="brand-mark" aria-hidden="true">✳</span><span class="brand-name">Congkla<span>Tika</span></span></a><p>Belajar budaya, bermain, dan berhitung bersama. <span>© <span id="year"></span> CongklaTika</span></p><button data-page="team" class="footer-link">Kenalan dengan tim</button></footer>
   <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
   <div id="modal-root"></div>
-  <script src="./app.js?v=20261118-audit-1" defer></script>
+  <script src="./app.js?v=20261119-firebase-1" defer></script>
+  <script type="module" src="./src/firebase-client.js"></script>
 </body>
 </html>

@@ -10,6 +10,7 @@ const staticRuntimeFiles = [
   'team-dimas-optimized.webp',
   'team-faisal-optimized.webp',
   'team-putri-optimized.webp',
+  'firebase-applet-config.json',
 ];
 
 function copyRuntimeAssetsPlugin() {
@@ -29,25 +30,8 @@ function copyRuntimeAssetsPlugin() {
   };
 }
 
-function injectFirebaseClientPlugin() {
-  return {
-    name: 'inject-congklatika-firebase-client',
-    transformIndexHtml: {
-      order: 'pre',
-      handler() {
-        return [
-          {
-            tag: 'script',
-            attrs: { type: 'module', src: '/src/firebase-client.js' },
-            injectTo: 'body',
-          },
-        ];
-      },
-    },
-  };
-}
-
 export default {
+  base: './',
   server: {
     host: '0.0.0.0',
     port: 3000,
@@ -56,5 +40,5 @@ export default {
     host: '0.0.0.0',
     port: 3000,
   },
-  plugins: [injectFirebaseClientPlugin(), copyRuntimeAssetsPlugin()],
+  plugins: [copyRuntimeAssetsPlugin()],
 };

@@ -452,6 +452,7 @@ let loginError='';
 let loginNeedsProviderSetup=false;
 let loginFocusTarget='';
 let cloudSession={ready:false,signedIn:false,uid:'',username:'',authMethod:''};
+let cloudMigrationUid='';
 let cloudSyncTimer=null;
 let cloudObserverAttached=false;
 let music={on:false,ctx:null,timer:null,step:0};
@@ -1591,6 +1592,29 @@ function closeLoginDialog(){
   const focus=loginReturnFocus;loginReturnFocus=null;
   if(focus?.isConnected)focus.focus({preventScroll:true});
 }
+function cloudAttemptDate(value){
+  if(typeof value==='string')return value;
+  if(value?.toDate){try{return value.toDate().toISOString()}catch(e){return ''}}
+  if(Number.isFinite(value?.seconds)){try{return new Date(value.seconds*1000).toISOString()}catch(e){return ''}}
+  return '';
+}
+function localAttemptFromCloud(attempt){
+  if(!attempt||!['pre','post'].includes(attempt.kind)||typeof attempt.attemptId!=='string')return null;
+  const scoreFor=id=>Math.min(2,Math.max(0,Math.trunc(Number(attempt[id])||0)));
+  const scores={total:Math.min(12,Math.max(0,Math.trunc(Number(attempt.total)||0))),addition:{correct:scoreFor('addition'),total:2},subtraction:{correct:scoreFor('subtraction'),total:2},multiplication:{correct:scoreFor('multiplication'),total:2},division:{correct:scoreFor('division'),total:2},fraction:{correct:scoreFor('fraction'),total:2}};
+  if(Number.isInteger(attempt.numberPattern))scores['number-pattern']={correct:scoreFor('numberPattern'),total:2};
+  return {id:attempt.attemptId,kind:attempt.kind,at:cloudAttemptDate(attempt.recordedAt),scores,questions:[],answers:[],baselineId:attempt.baselineId||null};
+}
+function mergeAttemptHistory(localList,cloudList,kind){
+  const byId=new Map();
+  for(const item of Array.isArray(localList)?localList:[]){if(item?.kind===kind&&item.id)byId.set(item.id,item)}
+  for(const item of Array.isArray(cloudList)?cloudList:[]){
+    const remote=localAttemptFromCloud(item);if(!remote||remote.kind!==kind)continue;
+    const local=byId.get(remote.id);
+    byId.set(remote.id,local?{...remote,...local,baselineId:local.baselineId||remote.baselineId||null}:remote);
+  }
+  return [...byId.values()].sort((a,b)=>String(a.at||'').localeCompare(String(b.at||''))).slice(-50);
+}
 function applyCloudBundle(bundle){
   if(!bundle)return;
   const p=bundle.profile;
@@ -1611,29 +1635,33 @@ function applyCloudBundle(bundle){
     if(Number.isInteger(p.gamesPlayed))state.stats.gamesPlayed=Math.max(state.stats.gamesPlayed||0,p.gamesPlayed);
     if(Number.isInteger(p.gamesWon))state.stats.gamesWon=Math.max(state.stats.gamesWon||0,p.gamesWon);
   }
-  if(Array.isArray(bundle.attempts)&&bundle.attempts.length){
-    const toScores=a=>{
-      const scores={total:a.total,addition:{correct:a.addition,total:2},subtraction:{correct:a.subtraction,total:2},multiplication:{correct:a.multiplication,total:2},division:{correct:a.division,total:2},fraction:{correct:a.fraction,total:2}};
-      if(Number.isInteger(a.numberPattern))scores['number-pattern']={correct:a.numberPattern,total:2};
-      return scores;
-    };
-    const preList=bundle.attempts.filter(a=>a.kind==='pre').map(a=>({id:a.attemptId,kind:'pre',at:'',scores:toScores(a),questions:[],answers:[],baselineId:null}));
-    const postList=bundle.attempts.filter(a=>a.kind==='post').map(a=>({id:a.attemptId,kind:'post',at:'',scores:toScores(a),questions:[],answers:[],baselineId:a.baselineId||null}));
-    if(preList.length&&!state.preAttempts.length){state.preAttempts=preList.slice(-50);state.preScores=preList.at(-1).scores}
-    if(postList.length&&!state.postAttempts.length){state.postAttempts=postList.slice(-50);state.postScores=postList.at(-1).scores}
+  if(Array.isArray(bundle.attempts)){
+    state.preAttempts=mergeAttemptHistory(state.preAttempts,bundle.attempts,'pre');
+    state.postAttempts=mergeAttemptHistory(state.postAttempts,bundle.attempts,'post');
+    if(state.preAttempts.length)state.preScores=state.preAttempts.at(-1).scores;
+    if(state.postAttempts.length)state.postScores=state.postAttempts.at(-1).scores;
+    if(!state.lastQuizAttempt){state.lastQuizAttempt=[...state.preAttempts,...state.postAttempts].sort((a,b)=>String(a.at||'').localeCompare(String(b.at||''))).at(-1)||null}
   }
   profileDialogOpen=false;profileDialogRequired=false;loginDialogOpen=false;loginDialogRequired=false;
   try{localStorage.setItem(KEY,JSON.stringify(persistedSnapshot()))}catch(e){}
   updateHeader();
+  if(Array.isArray(bundle.attempts)&&cloudSession.uid&&cloudMigrationUid!==cloudSession.uid){
+    cloudMigrationUid=cloudSession.uid;
+    const attempts=[...state.preAttempts,...state.postAttempts];
+    window.congklatikaCloud?.syncQuizAttemptsToCloud?.(attempts)?.catch?.(err=>console.warn('Quiz history migration deferred:',err));
+    scheduleCloudSync();
+  }
 }
 function attachCloudIntegration(){
   if(cloudObserverAttached||!window.congklatikaCloud?.attachAuthObserver)return;
   cloudObserverAttached=true;
   window.congklatikaCloud.attachAuthObserver(session=>{
     if(!session.signedIn){
+      const hadCloudSession=cloudSession.signedIn;
+      cloudMigrationUid='';
       cloudSession={ready:true,signedIn:false,uid:'',username:'',authMethod:''};
       updateHeader();
-      if(loginDialogOpen||state.page==='profile')render();
+      if(hadCloudSession&&(loginDialogOpen||state.page==='profile'))render();
       return;
     }
     applyCloudBundle({uid:session.user?.uid,username:session.profile?.username||state.accountUsername,authMethod:session.user?.authMethod,profile:session.profile,attempts:session.attempts});

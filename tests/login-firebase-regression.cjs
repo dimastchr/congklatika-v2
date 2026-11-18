@@ -72,7 +72,8 @@ function startVitePreview(port) {
       hasDbId: Boolean(window.congklatikaCloud?.databaseId),
       hasHandlers: typeof window.congklatikaCloud?.registerWithUsernamePin === 'function'
         && typeof window.congklatikaCloud?.loginWithUsernamePin === 'function'
-        && typeof window.congklatikaCloud?.loginWithGoogle === 'function',
+        && typeof window.congklatikaCloud?.loginWithGoogle === 'function'
+        && typeof window.congklatikaCloud?.syncQuizAttemptsToCloud === 'function',
     }));
     ok(
       cloudReady.present && cloudReady.projectId === 'still-might-hkpm1' && cloudReady.hasDbId && cloudReady.hasHandlers,
@@ -163,6 +164,44 @@ function startVitePreview(port) {
       const regOverflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
       ok(regOverflow === 0, `${width}px: menu Buat Akun di popup tidak overflow horizontal`);
     }
+
+    const merged = await page.evaluate(() => {
+      state.levelProgress = { 1: ['addition'], 2: [], 3: [] };
+      state.legacyUnlockedLevels = [2];
+      state.preAttempts = [{
+        id: 'pre-local', kind: 'pre', at: '2025-03-01T00:00:00.000Z',
+        scores: { total: 7, addition: { correct: 2, total: 2 }, subtraction: { correct: 1, total: 2 }, multiplication: { correct: 1, total: 2 }, division: { correct: 1, total: 2 }, fraction: { correct: 1, total: 2 }, 'number-pattern': { correct: 1, total: 2 } },
+        questions: [{ q: 'Pertanyaan lokal yang harus tetap ada' }], answers: [0], baselineId: null,
+      }];
+      state.postAttempts = [];
+      state.preScores = state.preAttempts[0].scores;
+      state.postScores = null;
+      state.lastQuizAttempt = null;
+      applyCloudBundle({
+        uid: 'test-owner', username: 'test_player', authMethod: 'username_pin',
+        profile: {
+          ownerUid: 'test-owner', username: 'test_player', authMethod: 'username_pin',
+          displayName: 'Dira', character: 'buji', level1Done: ['subtraction'],
+          level2Done: [], level3Done: [], legacyUnlockedLevels: [3], gamesPlayed: 1, gamesWon: 0,
+        },
+        attempts: [
+          { attemptId: 'pre-local', kind: 'pre', total: 5, addition: 1, subtraction: 1, multiplication: 1, division: 1, fraction: 1, numberPattern: 0, recordedAt: { seconds: 1740787200 } },
+          { attemptId: 'pre-cloud-old', kind: 'pre', total: 4, addition: 1, subtraction: 1, multiplication: 1, division: 1, fraction: 0, numberPattern: 0, recordedAt: { seconds: 1735689600 } },
+          { attemptId: 'post-cloud', kind: 'post', total: 8, addition: 2, subtraction: 1, multiplication: 1, division: 2, fraction: 1, numberPattern: 1, baselineId: 'pre-local', recordedAt: { seconds: 1743465600 } },
+        ],
+      });
+      return {
+        level1: state.levelProgress[1],
+        legacyLevels: state.legacyUnlockedLevels,
+        preIds: state.preAttempts.map((item) => item.id),
+        localQuestionRetained: state.preAttempts.find((item) => item.id === 'pre-local')?.questions?.[0]?.q,
+        latestPre: state.preScores?.total,
+        latestPost: state.postScores?.total,
+      };
+    });
+    ok(merged.level1.includes('addition') && merged.level1.includes('subtraction') && merged.legacyLevels.includes(2) && merged.legacyLevels.includes(3), 'progres materi lokal dan cloud digabung tanpa menghapus tingkat yang sudah terbuka');
+    ok(merged.preIds.includes('pre-local') && merged.preIds.includes('pre-cloud-old') && merged.localQuestionRetained === 'Pertanyaan lokal yang harus tetap ada', 'riwayat tes cloud ditambahkan tanpa mengganti detail jawaban lokal yang sudah ada');
+    ok(merged.latestPre === 7 && merged.latestPost === 8, 'nilai tes terbaru lokal dan cloud dipulihkan ke state aplikasi');
 
     ok(pageErrors.length === 0, `tidak ada JavaScript pageerror (${pageErrors.join('; ')})`);
     console.log(`PASS login-firebase regression (${checks} checks)`);
