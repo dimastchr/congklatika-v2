@@ -279,6 +279,15 @@ async function startServer() {
     ok(studyPitSeeds, 'G.2: Mode Belajar tetap menampilkan titik biji (maks 7) dan angka');
     await page.locator('[data-study-pit="0"]').click();
     await page.locator('.study-question-modal').waitFor();
+    await page.evaluate(() => { const modal = document.querySelector('.study-question-modal'); modal.style.maxHeight = '180px'; modal.scrollTop = Math.floor(modal.scrollHeight / 2); });
+    const studySticky = await page.evaluate(() => {
+      const modal = document.querySelector('.study-question-modal').getBoundingClientRect();
+      const header = document.querySelector('.study-modal-top').getBoundingClientRect();
+      const close = document.querySelector('.study-modal-top .modal-close-x').getBoundingClientRect();
+      const footer = document.querySelector('.study-modal-footer').getBoundingClientRect();
+      return { modal, header, close, footer };
+    });
+    ok(studySticky.header.top >= studySticky.modal.top - 1 && studySticky.close.top >= studySticky.modal.top - 1 && studySticky.close.bottom <= studySticky.modal.bottom + 1 && studySticky.footer.bottom <= studySticky.modal.bottom + 1, 'D.3: X dan tombol kembali tetap terlihat saat dialog soal digulir');
     await page.locator('[data-action="close-study-question"]').first().click();
     await page.locator('.study-question-modal').waitFor({ state: 'detached' });
     ok(await page.evaluate(() => studyRound.answered === 0 && !studyRound.selected[0] && studyRound.pits.reduce((a, b) => a + b, 0) === 98), 'D.2: Menutup soal Mode Belajar tidak menghukum pemain atau memindahkan biji');
