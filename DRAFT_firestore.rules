@@ -89,10 +89,10 @@ service cloud.firestore {
         && isValidLegacyLevels(data.legacyUnlockedLevels)
         && data.preTotal is int
         && data.preTotal >= -1
-        && data.preTotal <= 10
+        && data.preTotal <= 12
         && data.postTotal is int
         && data.postTotal >= -1
-        && data.postTotal <= 10
+        && data.postTotal <= 12
         && data.preAttemptsCount is int
         && data.preAttemptsCount >= 0
         && data.preAttemptsCount <= 500
@@ -126,12 +126,12 @@ service cloud.firestore {
     function isValidQuizAttempt(data, attemptId) {
       return data.keys().hasAll([
           'attemptId', 'ownerUid', 'kind', 'total', 'addition',
-          'subtraction', 'multiplication', 'division', 'fraction',
+          'subtraction', 'multiplication', 'division', 'fraction', 'numberPattern',
           'baselineId', 'recordedAt'
         ])
         && data.keys().hasOnly([
           'attemptId', 'ownerUid', 'kind', 'total', 'addition',
-          'subtraction', 'multiplication', 'division', 'fraction',
+          'subtraction', 'multiplication', 'division', 'fraction', 'numberPattern',
           'baselineId', 'recordedAt'
         ])
         && data.attemptId is string
@@ -145,13 +145,14 @@ service cloud.firestore {
         && data.kind in ['pre', 'post']
         && data.total is int
         && data.total >= 0
-        && data.total <= 10
+        && data.total <= 12
         && data.addition is int && data.addition >= 0 && data.addition <= 2
         && data.subtraction is int && data.subtraction >= 0 && data.subtraction <= 2
         && data.multiplication is int && data.multiplication >= 0 && data.multiplication <= 2
         && data.division is int && data.division >= 0 && data.division <= 2
         && data.fraction is int && data.fraction >= 0 && data.fraction <= 2
-        && (data.addition + data.subtraction + data.multiplication + data.division + data.fraction) == data.total
+        && data.numberPattern is int && data.numberPattern >= 0 && data.numberPattern <= 2
+        && (data.addition + data.subtraction + data.multiplication + data.division + data.fraction + data.numberPattern) == data.total
         && data.baselineId is string
         && data.baselineId.size() <= 48
         && data.recordedAt is timestamp;

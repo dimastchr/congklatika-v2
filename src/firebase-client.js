@@ -163,10 +163,10 @@ function sanitizeProfilePayload(uid, username, authMethod, localState, isCreate 
   const level3Done = sanitizeTopicList(lp[3]);
   const legacyUnlockedLevels = sanitizeLegacyLevels(localState?.legacyUnlockedLevels);
   const preTotal = Number.isInteger(localState?.preScores?.total)
-    ? Math.min(10, Math.max(0, localState.preScores.total))
+    ? Math.min(12, Math.max(0, localState.preScores.total))
     : -1;
   const postTotal = Number.isInteger(localState?.postScores?.total)
-    ? Math.min(10, Math.max(0, localState.postScores.total))
+    ? Math.min(12, Math.max(0, localState.postScores.total))
     : -1;
   const preAttemptsCount = Math.min(500, Math.max(0, Math.trunc(Number(localState?.preAttempts?.length) || (preTotal >= 0 ? 1 : 0))));
   const postAttemptsCount = Math.min(500, Math.max(0, Math.trunc(Number(localState?.postAttempts?.length) || (postTotal >= 0 ? 1 : 0))));
@@ -243,7 +243,7 @@ function mapAuthError(error) {
     return {
       code,
       needsProviderSetup: true,
-      message: 'Metode Email/Password belum diaktifkan di Firebase Console untuk project ini. Aktifkan Email/Password di Firebase Authentication Console, atau masuk dengan Google terlebih dahulu.',
+      message: 'Metode masuk Username & PIN belum aktif di pengaturan akun awan. Kamu bisa masuk langsung dengan tombol Google atau main sebagai tamu.',
     };
   }
   if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
@@ -252,7 +252,7 @@ function mapAuthError(error) {
   if (code === 'auth/network-request-failed') {
     return { code, message: 'Koneksi internet bermasalah. Data lokalmu tetap aman di perangkat.' };
   }
-  return { code: code || 'auth/unknown', message: error?.message || 'Gagal menghubungkan ke akun Firebase.' };
+  return { code: code || 'auth/unknown', message: error?.message || 'Gagal menghubungkan ke akun awan.' };
 }
 
 async function fetchPlayerBundle(uid) {
@@ -449,7 +449,8 @@ export async function recordQuizAttemptToCloud(attempt) {
   const multiplication = Math.min(2, Math.max(0, Math.trunc(Number(s.multiplication?.correct) || 0)));
   const division = Math.min(2, Math.max(0, Math.trunc(Number(s.division?.correct) || 0)));
   const fraction = Math.min(2, Math.max(0, Math.trunc(Number(s.fraction?.correct) || 0)));
-  const total = addition + subtraction + multiplication + division + fraction;
+  const numberPattern = Math.min(2, Math.max(0, Math.trunc(Number(s['number-pattern']?.correct) || 0)));
+  const total = addition + subtraction + multiplication + division + fraction + numberPattern;
   const path = `players/${user.uid}/quiz_attempts/${cleanId}`;
   const payload = {
     attemptId: cleanId,
@@ -461,6 +462,7 @@ export async function recordQuizAttemptToCloud(attempt) {
     multiplication,
     division,
     fraction,
+    numberPattern,
     baselineId: attempt.baselineId ? String(attempt.baselineId).slice(0, 48) : '',
     recordedAt: serverTimestamp(),
   };

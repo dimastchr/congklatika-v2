@@ -63,11 +63,11 @@
         },
         "preTotal": {
           "type": "integer",
-          "description": "Latest Pre-Test score (-1 if not attempted, otherwise 0 to 10)."
+          "description": "Latest Pre-Test score (-1 if not attempted, otherwise 0 to 12)."
         },
         "postTotal": {
           "type": "integer",
-          "description": "Latest Post-Test score (-1 if not attempted, otherwise 0 to 10)."
+          "description": "Latest Post-Test score (-1 if not attempted, otherwise 0 to 12)."
         },
         "preAttemptsCount": {
           "type": "integer",
@@ -177,7 +177,7 @@
         },
         "total": {
           "type": "integer",
-          "description": "Total correct answers (0 to 10)."
+          "description": "Total correct answers (0 to 12)."
         },
         "addition": {
           "type": "integer",
@@ -198,6 +198,10 @@
         "fraction": {
           "type": "integer",
           "description": "Correct answers in fraction (0 to 2)."
+        },
+        "numberPattern": {
+          "type": "integer",
+          "description": "Correct answers in number pattern (0 to 2)."
         },
         "baselineId": {
           "type": "string",
@@ -220,6 +224,7 @@
         "multiplication",
         "division",
         "fraction",
+        "numberPattern",
         "baselineId",
         "recordedAt"
       ]

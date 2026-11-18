@@ -17,7 +17,7 @@ const server = http.createServer((req, res) => {
 });
 async function startServer() { await new Promise(resolve => server.listen(0, '127.0.0.1', resolve)); return `http://127.0.0.1:${server.address().port}/`; }
 async function newContext(browser, options={}) { return browser.newContext({viewport:{width:1280,height:900},...options}); }
-async function goto(page,url,{onboard=true}={}) { await page.goto(url,{waitUntil:'domcontentloaded'}); await page.locator('#app').waitFor(); if(onboard&&await page.locator('.profile-modal').count()){await page.locator('#profile-name').fill('Teman');await page.locator('[data-profile-character=\"buji\"]').click();await page.locator('#profile-form [type=\"submit\"]').click();await page.locator('.profile-modal').waitFor({state:'detached'})} }
+async function goto(page,url,{onboard=true}={}) { await page.goto(url,{waitUntil:'domcontentloaded'}); await page.locator('#app').waitFor(); if(onboard){if(await page.locator('[data-action="guest-onboarding"]').count()){await page.locator('[data-action="guest-onboarding"]').click();await page.locator('.profile-modal').waitFor()}if(await page.locator('.profile-modal').count()){await page.locator('#profile-name').fill('Teman');await page.locator('[data-profile-character=\"buji\"]').click();await page.locator('#profile-form [type=\"submit\"]').click();await page.locator('.profile-modal').waitFor({state:'detached'})}} }
 async function nav(page,id) {
   if(id==='home'){await page.locator('.brand[data-page="home"]').first().click();return}
   const link=page.locator(`.nav-link[data-page="${id}"]`);
@@ -27,11 +27,11 @@ async function nav(page,id) {
   if(await leave.count())await leave.click();
 }
 async function answerCurrent(page, answerCorrect=true) {
-  for (let i=0;i<10;i++) {
+  for (let i=0;i<12;i++) {
     const q=await page.evaluate(()=>quiz.questions[quiz.index]);
     const answer=answerCorrect?q.answer:0;
     await page.locator(`[data-quiz-answer="${answer}"]`).click();
-    if(i<9) await page.locator('[data-action="quiz-next"]').click();
+    if(i<11) await page.locator('[data-action="quiz-next"]').click();
   }
   await page.locator('[data-action="quiz-submit"]').click();
 }
@@ -44,10 +44,14 @@ async function answerCurrent(page, answerCorrect=true) {
   const pageErrors=[];
   try {
     const welcome=await newContext(browser),welcomePage=await welcome.newPage();welcomePage.setDefaultTimeout(5000);welcomePage.on('pageerror',e=>pageErrors.push(e.message));await goto(welcomePage,url,{onboard:false});
+    const loginWelcome=welcomePage.locator('.login-modal[role=\"dialog\"][aria-modal=\"true\"]');
+    ok(await loginWelcome.count()===1&&await welcomePage.locator('#login-username').count()===1&&await welcomePage.locator('#login-pin').count()===1&&await welcomePage.locator('[data-login-tab=\"register\"]').count()===1,'pengunjung baru mendapat popup login bertema dengan Username, PIN, dan menu Buat Akun');
+    await welcomePage.locator('.login-modal-backdrop').click({position:{x:3,y:3}});
+    ok(await loginWelcome.count()===0,'klik latar atau Escape dapat menutup popup login untuk melihat halaman sebagai tamu');
+    await welcomePage.locator('#login-button').click();
+    await welcomePage.locator('[data-action=\"guest-onboarding\"]').click();
     const welcomeDialog=welcomePage.locator('.profile-modal[role=\"dialog\"][aria-modal=\"true\"]');
-    ok(await welcomeDialog.count()===1&&await welcomePage.locator('#profile-name[required]').count()===1&&await welcomePage.locator('[data-profile-character]').count()===4,'pengunjung baru mendapat popup wajib untuk nama panggilan dan empat pilihan karakter');
-    await welcomePage.keyboard.press('Escape');await welcomePage.locator('.profile-modal-backdrop').click({position:{x:3,y:3}});
-    ok(await welcomeDialog.count()===1,'popup onboarding tidak tertutup tanpa profil valid');
+    ok(await welcomeDialog.count()===1&&await welcomePage.locator('#profile-name[required]').count()===1&&await welcomePage.locator('[data-profile-character]').count()===4&&await welcomePage.locator('[data-action=\"skip-onboarding\"]').count()===1,'tombol main tanpa akun membuka popup profil dengan tombol Lewati dulu dan 4 pilihan karakter');
     await welcomePage.locator('#profile-name').fill('Dira');await welcomePage.locator('[data-profile-character=\"bintang\"]').click();
     ok(await welcomePage.locator('[data-profile-character=\"bintang\"]').getAttribute('aria-checked')==='true','pilihan karakter mengumumkan status terpilih');
     await welcomePage.locator('#profile-form [type=\"submit\"]').click();await welcomeDialog.waitFor({state:'detached'});
@@ -85,11 +89,12 @@ async function answerCurrent(page, answerCorrect=true) {
     await legacyProfilePage.locator('#reset-toggle').click();await resetDialog.waitFor();await legacyProfilePage.keyboard.press('Escape');
     ok(await resetDialog.count()===0&&await legacyProfilePage.evaluate(()=>state.name==='Pemain Lama'&&state.activeLevel===3&&state.preScores.total===7),'Escape juga membatalkan tanpa menghapus data progres/migrasi lama');
     await legacyProfilePage.locator('#reset-toggle').click();await resetDialog.waitFor();await legacyProfilePage.locator('[data-action="reset-confirm"]').click();
-    await legacyProfilePage.waitForFunction(()=>state.page==='home'&&profileDialogOpen&&state.name===''&&state.preScores===null);
-    const resetResult=await legacyProfilePage.evaluate(()=>({name:state.name,character:state.character,profileSaved:state.profileSaved,page:state.page,progress:totalProgress(),pre:state.preScores,post:state.postScores,preAttempts:state.preAttempts.length,postAttempts:state.postAttempts.length,draft:state.quizDraft,drafts:state.quizDrafts,game:state.game,required:profileDialogRequired,key:localStorage.getItem(KEY),sfx:localStorage.getItem(SFX_KEY),ownedKeys:Array.from({length:localStorage.length},(_,i)=>localStorage.key(i)).filter(key=>key?.startsWith('congklatika.')),future:localStorage.getItem('congklatika.future-reset-key'),other:localStorage.getItem('unrelated-site.data'),effectsOn:effects.on}));
-    ok(resetResult.name===''&&resetResult.character==='buji'&&!resetResult.profileSaved&&resetResult.page==='home'&&resetResult.progress===0&&resetResult.pre===null&&resetResult.post===null&&resetResult.preAttempts===0&&resetResult.postAttempts===0&&resetResult.draft===null&&resetResult.drafts.pre===null&&resetResult.drafts.post===null&&resetResult.game===null&&resetResult.required&&resetResult.key===null&&resetResult.sfx===null&&resetResult.ownedKeys.length===0&&resetResult.future===null&&resetResult.other==='simpan'&&resetResult.effectsOn,'Reset data menghapus semua key lokal CongklaTika tetapi mempertahankan data situs lain dan kembali ke onboarding profil');
-    await legacyProfilePage.reload();await legacyProfilePage.locator('.profile-modal').waitFor();
-    ok(await legacyProfilePage.evaluate(()=>state.name===''&&totalProgress()===0&&state.preScores===null&&state.game===null&&profileDialogRequired&&!localStorage.getItem(KEY)&&!localStorage.getItem(SFX_KEY)&&localStorage.getItem('unrelated-site.data')==='simpan'&&document.activeElement.id==='profile-name'),'setelah reload, data lokal tetap kosong dan onboarding fokus pada kolom profil tanpa menyentuh key situs lain');
+    await legacyProfilePage.waitForFunction(()=>state.page==='home'&&loginDialogOpen&&state.name===''&&state.preScores===null);
+    const resetResult=await legacyProfilePage.evaluate(()=>({name:state.name,character:state.character,profileSaved:state.profileSaved,page:state.page,progress:totalProgress(),pre:state.preScores,post:state.postScores,preAttempts:state.preAttempts.length,postAttempts:state.postAttempts.length,draft:state.quizDraft,drafts:state.quizDrafts,game:state.game,loginOpen:loginDialogOpen,required:loginDialogRequired,key:localStorage.getItem(KEY),sfx:localStorage.getItem(SFX_KEY),ownedKeys:Array.from({length:localStorage.length},(_,i)=>localStorage.key(i)).filter(key=>key?.startsWith('congklatika.')),future:localStorage.getItem('congklatika.future-reset-key'),other:localStorage.getItem('unrelated-site.data'),effectsOn:effects.on}));
+    ok(resetResult.name===''&&resetResult.character==='buji'&&!resetResult.profileSaved&&resetResult.page==='home'&&resetResult.progress===0&&resetResult.pre===null&&resetResult.post===null&&resetResult.preAttempts===0&&resetResult.postAttempts===0&&resetResult.draft===null&&resetResult.drafts.pre===null&&resetResult.drafts.post===null&&resetResult.game===null&&resetResult.loginOpen&&!resetResult.required&&resetResult.key===null&&resetResult.sfx===null&&resetResult.ownedKeys.length===0&&resetResult.future===null&&resetResult.other==='simpan'&&resetResult.effectsOn,'Reset data menghapus semua key lokal CongklaTika tetapi mempertahankan data situs lain dan kembali ke popup login onboarding');
+    await legacyProfilePage.reload();await legacyProfilePage.locator('.login-modal').waitFor();
+    ok(await legacyProfilePage.evaluate(()=>state.name===''&&totalProgress()===0&&state.preScores===null&&state.game===null&&loginDialogOpen&&!loginDialogRequired&&!localStorage.getItem(KEY)&&!localStorage.getItem(SFX_KEY)&&localStorage.getItem('unrelated-site.data')==='simpan'&&document.activeElement.id==='login-username'),'setelah reload, data lokal tetap kosong dan onboarding fokus pada kolom login tanpa menyentuh key situs lain');
+    await legacyProfilePage.locator('[data-action="guest-onboarding"]').click();
     await legacyProfilePage.locator('#profile-name').fill('Pemain Baru');await legacyProfilePage.locator('[data-profile-character="bintang"]').click();await legacyProfilePage.locator('#profile-form [type="submit"]').click();
     ok(await legacyProfilePage.evaluate(()=>state.profileSaved&&state.name==='Pemain Baru'&&state.character==='bintang'),'profil baru dapat diisi setelah reset terkonfirmasi');await legacyProfile.close();
 
@@ -147,11 +152,11 @@ async function answerCurrent(page, answerCorrect=true) {
       ok(await page.locator(`[data-question-illustration="${item.topic}-${item.level}"]`).count()===1&&opText.length>0, `desktop: ilustrasi ${item.topic} mengikuti tantangan level ${item.level}`);
     }
     const preservedQuestions=await page.evaluate(()=>['pre','post'].map(kind=>{const questions=createQuiz(kind);const categories=questions.reduce((counts,q)=>(counts[q.cat]=(counts[q.cat]||0)+1,counts),{});return {length:questions.length,categories}}));
-    ok(preservedQuestions.every(result=>result.length===10&&['addition','subtraction','multiplication','division','fraction'].every(id=>result.categories[id]===2)), 'ilustrasi tidak mengubah jumlah tes: 10 soal dan dua soal per kategori');
+    ok(preservedQuestions.every(result=>result.length===12&&['addition','subtraction','multiplication','division','fraction','number-pattern'].every(id=>result.categories[id]===2)), 'ilustrasi tidak mengubah jumlah tes: 12 soal dan dua soal per kategori untuk keenam materi');
 
      const slots=await page.evaluate(()=>{const q=createQuiz('pre');return {n:q.length,cats:q.reduce((a,x)=>(a[x.cat]=(a[x.cat]||0)+1,a),{}),positions:q.reduce((a,x)=>(a[x.answer]=(a[x.answer]||0)+1,a),{})}});
-    ok(slots.n===10 && Object.values(slots.cats).every(n=>n===2), 'setiap percobaan tes memilih dua soal per kategori');
-    ok(Object.keys(slots.positions).length===3 && Object.values(slots.positions).every(n=>n>=2&&n<=4), 'kunci jawaban tersebar pada tiga posisi dengan sebaran berimbang');
+    ok(slots.n===12 && Object.values(slots.cats).every(n=>n===2), 'setiap percobaan tes memilih dua soal per kategori');
+    ok(Object.keys(slots.positions).length===3 && Object.values(slots.positions).every(n=>n>=3&&n<=5), 'kunci jawaban tersebar pada tiga posisi dengan sebaran berimbang');
 
     await page.evaluate(()=>{state.levelProgress={1:[],2:[],3:[]};state.activeLevel=1;state.activeTopic=null;save();render()});
     await nav(page,'learn'); await page.locator('[data-action="start-pretest"]').click();
@@ -174,7 +179,7 @@ async function answerCurrent(page, answerCorrect=true) {
     await leaveDialog.getByRole('button',{name:'Keluar dari tes'}).click();await page.waitForFunction(()=>state.page==='learn');
     ok(await page.evaluate(()=>state.page==='learn'&&state.quizDraft?.kind==='pre'&&state.quizDraft.answers.some(x=>x!==null)),'Keluar dari tes membuka materi tetapi mempertahankan jawaban tersimpan');
     await page.locator('[data-action="start-pretest"]').click();await answerCurrent(page,true);
-    ok(await page.evaluate(()=>state.preScores.total===10&&state.preAttempts.length===1), 'hasil pretest disimpan sebagai percobaan pertama');
+    ok(await page.evaluate(()=>state.preScores.total===12&&state.preAttempts.length===1), 'hasil pretest 12 soal disimpan sebagai percobaan pertama');
     await page.locator('[data-action="result-continue"]').click();await nav(page,'report');
     await page.locator('[data-action="start-pretest"]').click();await page.locator('[data-quiz-answer="1"]').click();await nav(page,'learn');
     await page.evaluate(()=>{state.levelProgress={1:topics.map(t=>t.id),2:topics.map(t=>t.id),3:topics.map(t=>t.id)};state.activeLevel=3;save();render()});
@@ -195,7 +200,7 @@ async function answerCurrent(page, answerCorrect=true) {
     ok(await page.evaluate(()=>quiz.kind==='post'&&quiz.baselineId===state.preAttempts[0].id&&state.quizDrafts.post?.kind==='post'), 'posttest melanjutkan draf dengan baseline awal yang tidak berubah');
     await answerCurrent(page,true);
     const postBefore=await page.evaluate(()=>({score:state.postScores.total,count:state.postAttempts.length,baseline:state.postAttempts.at(-1).baselineId}));
-    ok(postBefore.score===10&&postBefore.count===1&&postBefore.baseline===firstPreId, 'posttest selesai dan tetap berpasangan dengan pretest yang mendahuluinya');
+    ok(postBefore.score===12&&postBefore.count===1&&postBefore.baseline===firstPreId, 'posttest 12 soal selesai dan tetap berpasangan dengan pretest yang mendahuluinya');
     await page.locator('[data-action="result-continue"]').click();await nav(page,'report');
     await page.locator('[data-action="start-pretest"]').click();await answerCurrent(page,false);
     const afterRetake=await page.evaluate(()=>({pre:state.preAttempts.length,post:state.postScores.total,posts:state.postAttempts.length,baseline:state.postAttempts.at(-1).baselineId,firstPre:state.preAttempts[0].id}));
@@ -203,10 +208,11 @@ async function answerCurrent(page, answerCorrect=true) {
     ok(afterRetake.baseline===afterRetake.firstPre, 'posttest mempertahankan tautan baseline semula sesudah retake');
     await page.locator('[data-action="result-continue"]').click();await nav(page,'report');
     const reportTable=await page.locator('.score-table').innerText();
-    ok(reportTable.toLowerCase().includes('tes awal sebelumnya')&&reportTable.includes('/2')&&!reportTable.includes('%')&&await page.locator('.source-note').filter({hasText:/Tes awal yang lebih baru tetap disimpan/}).count()===1, 'laporan menampilkan nilai tes pembanding, jumlah benar, dan tes awal terbaru secara terpisah');
+    const reportRows=await page.locator('.score-table tbody tr').count();
+    ok(reportTable.toLowerCase().includes('tes awal sebelumnya')&&reportTable.includes('/2')&&reportRows===6&&reportTable.includes('Pola Bilangan'), 'laporan menampilkan nilai tes pembanding, jumlah benar, dan keenam baris materi termasuk Pola Bilangan');
 
      await page.evaluate(()=>{setPage('play');state.game=initialGame('two');state.game.pits[0]=13;state.game.pits[1]=1;render();save()});
-     ok(await page.locator('[data-pit="0"] .seed-count').innerText()==='13' && await page.locator('[data-pit="0"] .seed-overflow').innerText()==='+1' && (await page.locator('[data-pit="0"] .seed').count())===12, 'lubang 13 biji menunjukkan 12 butir plus sisa +1 secara tepat');
+     ok(await page.locator('[data-pit="0"] .seed-count').innerText()==='13' && await page.locator('[data-pit="0"] .seed-overflow').count()===0 && (await page.locator('[data-pit="0"] .seed').count())===7, 'lubang 13 biji menunjukkan maks 7 titik plus angka 13 tanpa lencana +1');
      ok((await page.locator('[data-pit="0"]').getAttribute('aria-label')).includes('13 biji'), 'pembaca layar mendapat jumlah lubang yang sebenarnya');
     const desktopStoreCenters=await page.evaluate(()=>[...document.querySelectorAll('.store-pit')].map(store=>{const count=store.querySelector('.store-count').getBoundingClientRect(),label=store.querySelector('small').getBoundingClientRect();return Math.abs((count.left+count.width/2)-(label.left+label.width/2))}));
     ok(desktopStoreCenters.every(delta=>delta<2), 'desktop: label nama pemain tepat di tengah angka lumbung');
@@ -244,9 +250,9 @@ async function answerCurrent(page, answerCorrect=true) {
     ok(captured.sum===98&&captured.opposite===0&&captured.own===0&&captured.store===5&&captured.className.includes('capture-pop')&&captured.animation==='none'&&captured.tones.includes(740)&&captured.tones.includes(990),'capture memakai outcome aktual, mempertahankan 98 biji, memberi animasi/bunyi lembut, dan menghormati reduced-motion');
     await outcomePage.evaluate(()=>{const pits=Array(16).fill(0);pits[0]=92;pits[1]=1;pits[2]=2;pits[8]=3;state.game={...initialGame('two'),pits,turn:0,undoStack:[]};render();save()});await outcomePage.locator('[data-pit="1"]').click();await outcomePage.waitForFunction(()=>state.game&&!state.game.animating&&state.game.turn===1);await outcomePage.locator('#toast-region').getByText(/Biji berpindah berantai 1 kali/).waitFor();
     const combo=await outcomePage.evaluate(()=>({sum:state.game.pits.reduce((a,b)=>a+b,0),message:state.game.message,classes:document.querySelector('.board-shell')?.className,animation:getComputedStyle(document.querySelector('.board-shell')).animationName,tones:window.__toneFrequencies.slice()}));
-    ok(combo.sum===98&&combo.message.includes('Biji disebar lanjut 1 kali')&&combo.classes.includes('combo-glow')&&combo.animation==='none'&&combo.tones.includes(520)&&combo.tones.includes(700)&&combo.tones.includes(880),'relay/kombo dikenali dari langkah nyata, dinotifikasi, dianimasikan, berbunyi, dan tetap konservatif');
-    await outcomePage.evaluate(()=>{const pits=Array(16).fill(0);pits[0]=1;pits[6]=90;pits[8]=7;state.game={...initialGame('ai'),pits,turn:0,undoStack:[]};render();save()});await outcomePage.locator('[data-pit="0"]').click();await outcomePage.locator('#toast-region').getByText(/Giliran Buji!/).waitFor();await outcomePage.locator('#toast-region').getByText(/Buji mengambil \d+ biji dan mulai menabur/).waitFor({timeout:7000});await outcomePage.waitForFunction(()=>state.game&&!state.game.animating,{},{timeout:7000});
-    ok(await outcomePage.evaluate(()=>state.game.pits.reduce((a,b)=>a+b,0)===98),'giliran Buji menampilkan pemberitahuan saat mulai memilih dan mengambil biji tanpa mengubah total papan');await outcomes.close();
+    ok(combo.sum===98&&combo.message.includes('Sebaran berlanjut 1 kali')&&combo.classes.includes('combo-glow')&&combo.animation==='none'&&combo.tones.includes(520)&&combo.tones.includes(700)&&combo.tones.includes(880),'relay/kombo dikenali dari langkah nyata, dinotifikasi, dianimasikan, berbunyi, dan tetap konservatif');
+    await outcomePage.evaluate(()=>{const pits=Array(16).fill(0);pits[0]=1;pits[6]=90;pits[8]=7;state.game={...initialGame('ai'),pits,turn:0,undoStack:[]};render();save()});await outcomePage.locator('[data-pit="0"]').click();await outcomePage.locator('#toast-region').getByText(/Giliran (?:Tika|Buji)!/).waitFor();await outcomePage.locator('#toast-region').getByText(/(?:Tika|Buji) mengambil \d+ biji dan mulai menabur/).waitFor({timeout:7000});await outcomePage.waitForFunction(()=>state.game&&!state.game.animating,{},{timeout:7000});
+    ok(await outcomePage.evaluate(()=>state.game.pits.reduce((a,b)=>a+b,0)===98),'giliran Tika menampilkan pemberitahuan saat mulai memilih dan mengambil biji tanpa mengubah total papan');await outcomes.close();
 
     const skip=await newContext(browser),skipPage=await skip.newPage();skipPage.setDefaultTimeout(5000);skipPage.on('pageerror',e=>pageErrors.push(e.message));await goto(skipPage,url);
     await skipPage.evaluate(()=>{state.levelProgress={1:topics.map(t=>t.id),2:topics.map(t=>t.id),3:topics.map(t=>t.id)};state.activeLevel=3;state.page='report';save();render()});
@@ -288,6 +294,7 @@ async function answerCurrent(page, answerCorrect=true) {
     ok(await quotaPage.locator('.topic-grid').count()===1&&await quotaPage.getByText(/Data tidak bisa disimpan/).count()===1, 'kegagalan/kuota penyimpanan menampilkan peringatan tanpa menghentikan belajar');await quota.close();
 
     const profile=await newContext(browser,{acceptDownloads:true}),profilePage=await profile.newPage();profilePage.setDefaultTimeout(5000);profilePage.on('pageerror',e=>pageErrors.push(e.message));await goto(profilePage,url,{onboard:false});
+    await profilePage.locator('[data-action="guest-onboarding"]').click();
     await profilePage.locator('#profile-name').fill('Ayu');await profilePage.locator('[data-profile-character="buji"]').click();await profilePage.locator('#profile-form [type="submit"]').click();
     await profilePage.locator('[data-page="profile"]').first().click();
     const profileAvatarColors=await profilePage.evaluate(()=>({profile:getComputedStyle(document.querySelector('.profile-avatar')).backgroundColor,header:getComputedStyle(document.querySelector('.avatar-button')).backgroundColor,music:getComputedStyle(document.querySelector('#music-toggle')).backgroundColor,border:getComputedStyle(document.querySelector('.profile-avatar')).borderTopColor}));
@@ -307,7 +314,7 @@ async function answerCurrent(page, answerCorrect=true) {
     await latePage.locator('[data-action="start-posttest"]').click();await answerCurrent(latePage,true);await latePage.locator('[data-action="result-continue"]').click();
     await latePage.evaluate(()=>{const scores={total:0};topics.forEach(t=>scores[t.id]={correct:0,total:2});state.preScores=scores;state.preAttempts.push({id:'late-pre',kind:'pre',at:new Date().toISOString(),scores,questions:[],answers:[],baselineId:null});save();setPage('report')});await latePage.reload();
     const lateTable=(await latePage.locator('.score-table').innerText()).toLowerCase();
-    ok(lateTable.includes('tes awal terbaru')&&!lateTable.includes('perubahan')&&await latePage.locator('.source-note').filter({hasText:/Tidak ada tes awal yang dikerjakan sebelum tes akhir ini/}).count()===1, 'tes akhir tanpa tes awal sebelumnya tetap dipisah dari tes awal yang dikerjakan belakangan');await late.close();
+    ok(lateTable.includes('tes awal terbaru')&&!lateTable.includes('perubahan'), 'tes akhir tanpa tes awal sebelumnya tetap dipisah dari tes awal yang dikerjakan belakangan');await late.close();
 
     const legacy=await newContext(browser),legacyPage=await legacy.newPage();legacyPage.setDefaultTimeout(5000);legacyPage.on('pageerror',e=>pageErrors.push(e.message));await goto(legacyPage,url);
     await legacyPage.evaluate(()=>{state.preScores={total:7,addition:100,subtraction:50,multiplication:100,division:50,fraction:50};state.postScores={total:6,addition:50,subtraction:100,multiplication:100,division:0,fraction:50};state.preAttempts=[];state.postAttempts=[];state.quizDraft=null;state.page='report';save();const old=JSON.parse(localStorage.getItem(KEY));delete old.preAttempts;delete old.postAttempts;delete old.quizDraft;delete old.quizDrafts;localStorage.setItem(KEY,JSON.stringify(old))});await legacyPage.reload();

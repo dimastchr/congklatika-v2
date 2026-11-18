@@ -10,7 +10,7 @@ const start = src.indexOf('function initialGame(');
 const end = src.indexOf('function selectGameMode(', start);
 assert(start >= 0 && end > start, 'game functions must be present in app.js');
 let gameBlock = src.slice(start, end).replace(
-  /function wait\(ms\)\{return new Promise\(resolve=>setTimeout\(resolve,ms\)\)\}/,
+  /function wait\(ms\)\{[\s\S]*?\n\}/,
   'function wait(ms){return __wait(ms)}'
 );
 function sum(pits) { return pits.reduce((a, b) => a + b, 0); }
@@ -47,6 +47,7 @@ function makeContext({delay = false, random = 0.5} = {}) {
     state: {name: 'Tester', game: null, page: 'play'},
     seedDots: count => Array.from({length:Math.min(count,12)},()=>'<i></i>').join(''), esc: value => String(value),
     activeMoveSnapshot: null, moveGeneration: 0, aiGeneration: 0,
+    skipCurrentAnimation: false, activeWaitResolvers: new Set(),
     render() {}, save() {}, toast() {}, playTone() {}, playEffect() {}, popConfetti() {}, reducedMotion: () => true,
   };
   vm.createContext(context);
@@ -101,7 +102,7 @@ function test(name, fn) { return Promise.resolve().then(fn).then(() => console.l
     const h = makeContext(); const pits = Array(16).fill(0); pits[0] = 1; pits[1] = 1; pits[8] = 1; pits[15] = 95;
     h.context.state.game = {...h.api.initialGame('two'), pits, turn: 0};
     await h.api.movePit(0);
-    assert.match(h.context.state.game.message, /disebar lanjut 1 kali/);
+    assert.match(h.context.state.game.message, /Sebaran berlanjut 1 kali/);
     assert.equal(sum(h.context.state.game.pits), 98); checks++;
   });
   await test('undo pemain memulihkan susunan dan giliran sebelumnya', async () => {

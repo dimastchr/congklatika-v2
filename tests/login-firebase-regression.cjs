@@ -57,7 +57,7 @@ function startVitePreview(port) {
   const pageErrors = [];
 
   try {
-    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    const context = await browser.newContext({ viewport: { width: 1280, height: 640 } });
     const page = await context.newPage();
     page.setDefaultTimeout(7000);
     page.on('pageerror', (e) => pageErrors.push(e.message));
@@ -79,18 +79,21 @@ function startVitePreview(port) {
       'Firebase SDK terhubung ke projectId still-might-hkpm1 dengan fungsi Username+PIN dan Google'
     );
 
-    // Quick path from onboarding dialog -> Login page
-    await page.locator('[data-action="onboarding-to-login"]').click();
-    await page.locator('#cloud-login-form').waitFor();
-    ok(await page.evaluate(() => state.page === 'login'), 'tombol di popup onboarding membuka halaman Login');
+    // Login popup opens automatically on first visit with no #login standalone page
+    await page.locator('.login-modal[role="dialog"][aria-modal="true"]').waitFor();
+    ok(await page.evaluate(() => !validPage('login') && state.page === 'home'), 'halaman login terpisah dihapus dan diganti popup login di atas halaman utama');
 
-    // Numeric keypad works and PIN visibility toggles
-    await page.locator('[data-pin-digit="1"]').click();
-    await page.locator('[data-pin-digit="2"]').click();
-    await page.locator('[data-pin-digit="3"]').click();
-    await page.locator('[data-pin-digit="4"]').click();
-    ok((await page.locator('#login-pin').inputValue()) === '1234', 'keypad angka PIN mengisi 4 digit dengan benar');
+    // Zero internal vertical scroll on 1280x640 preview viewport (Sign-in tab)
+    const signInMetrics = await page.locator('.login-modal').evaluate((el) => ({
+      scrollHeight: el.scrollHeight,
+      clientHeight: el.clientHeight,
+      diff: el.scrollHeight - el.clientHeight,
+    }));
+    ok(signInMetrics.diff <= 1, `1280x640: popup Masuk tidak memiliki scrollbar vertikal (scroll=${signInMetrics.scrollHeight}, client=${signInMetrics.clientHeight})`);
 
+    // Username, PIN input & Lihat/Tutup visibility toggle
+    await page.locator('#login-pin').fill('1234');
+    ok((await page.locator('#login-pin').inputValue()) === '1234', 'input PIN menerima 4 digit angka');
     await page.locator('[data-action="toggle-pin-visibility"]').click();
     ok((await page.locator('#login-pin').getAttribute('type')) === 'text', 'tombol Lihat/Tutup mengubah visibilitas PIN');
 
@@ -99,9 +102,15 @@ function startVitePreview(port) {
     await page.locator('#cloud-login-form [type="submit"]').click();
     ok((await page.locator('.login-error').innerText()).includes('3–20 karakter'), 'validasi username invalid tampil dengan pesan jelas');
 
-    // Switch to Register tab & check fields + PIN confirmation mismatch guard
+    // Switch to Buat Akun menu & check zero scroll + PIN confirmation mismatch guard
     await page.locator('[data-login-tab="register"]').click();
     await page.locator('#cloud-register-form').waitFor();
+    const registerMetrics = await page.locator('.login-modal').evaluate((el) => ({
+      scrollHeight: el.scrollHeight,
+      clientHeight: el.clientHeight,
+      diff: el.scrollHeight - el.clientHeight,
+    }));
+    ok(registerMetrics.diff <= 1, `1280x640: menu Buat Akun di popup tidak memiliki scrollbar vertikal (scroll=${registerMetrics.scrollHeight}, client=${registerMetrics.clientHeight})`);
     await page.locator('#reg-username').fill('dira_01');
     await page.locator('#reg-name').fill('Dira');
     await page.locator('#reg-pin').fill('1234');
@@ -109,10 +118,29 @@ function startVitePreview(port) {
     await page.locator('#cloud-register-form [type="submit"]').click();
     ok((await page.locator('.login-error').innerText()).includes('Konfirmasi PIN tidak sama'), 'validasi konfirmasi PIN tidak cocok bekerja');
 
+    // Quick path from login popup -> compact guest profile popup (also zero scroll) -> dismisses cleanly
+    await page.locator('[data-action="guest-onboarding"]').click();
+    await page.locator('.profile-modal').waitFor();
+    const profileMetrics = await page.locator('.profile-modal').evaluate((el) => ({
+      scrollHeight: el.scrollHeight,
+      clientHeight: el.clientHeight,
+      diff: el.scrollHeight - el.clientHeight,
+    }));
+    ok(profileMetrics.diff <= 1, `1280x640: popup profil tamu tidak memiliki scrollbar vertikal (scroll=${profileMetrics.scrollHeight}, client=${profileMetrics.clientHeight})`);
+
+    await page.locator('#profile-name').fill('Dira');
+    await page.locator('#profile-form [type="submit"]').click();
+    await page.locator('.profile-modal').waitFor({ state: 'detached' });
+
+    // Re-open login popup from header Masuk button and close with Escape
+    await page.locator('#login-button').click();
+    await page.locator('.login-modal').waitFor();
+    await page.keyboard.press('Escape');
+    await page.locator('.login-modal').waitFor({ state: 'detached' });
+    ok(true, 'tombol Masuk di header membuka popup login dan Escape menutupnya');
+
     // Check Paspor Budaya badges on Profile page
     await page.evaluate(() => {
-      state.name = 'Dira';
-      state.profileSaved = true;
       state.levelProgress[1] = ['addition', 'subtraction', 'multiplication', 'division', 'fraction', 'number-pattern'];
       state.page = 'profile';
       render();
@@ -123,12 +151,17 @@ function startVitePreview(port) {
     }));
     ok(badges.count === 6 && badges.unlocked === 2, 'Paspor Budaya menampilkan 6 lencana dengan 2 terbuka setelah Level 1 selesai');
 
-    // Mobile responsive check (320px and 390px) on Login page
+    // Mobile responsive check (320px and 390px) with Login popup open
     for (const width of [320, 390]) {
       await page.setViewportSize({ width, height: 820 });
-      await page.evaluate(() => { state.page = 'login'; render(); });
+      await page.evaluate(() => { openLogin('signin'); });
+      await page.locator('.login-modal').waitFor();
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
-      ok(overflow === 0, `${width}px: halaman login Username & PIN tidak overflow`);
+      ok(overflow === 0, `${width}px: popup login Username & PIN tidak overflow horizontal`);
+      await page.locator('[data-login-tab="register"]').click();
+      await page.locator('#cloud-register-form').waitFor();
+      const regOverflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
+      ok(regOverflow === 0, `${width}px: menu Buat Akun di popup tidak overflow horizontal`);
     }
 
     ok(pageErrors.length === 0, `tidak ada JavaScript pageerror (${pageErrors.join('; ')})`);
